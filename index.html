@@ -603,7 +603,7 @@ async boot() {
   if (me.is_elder) App.updateGreeting();
   App.toast('欢迎，' + me.name + '！');
   // 登录后异步申请 Push 权限（不阻塞主流程）
-  if (!me.isAdmin) App.setupPush();
+  if (!me.isAdmin) setTimeout(() => App.setupPush(), 5000);
 },
 
 /* ════════════════════════════════════════
