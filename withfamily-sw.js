@@ -2,7 +2,7 @@
 // 新增: push 事件处理 → 系统级通知（锁屏/后台也能收到）
 
 const CACHE = 'withfamily-v3';
-const ASSETS = ['./'];
+const ASSETS = ['/withfamily'];
 
 // ── Install ───────────────────────────────────────────────────────────────────
 self.addEventListener('install', e => {
