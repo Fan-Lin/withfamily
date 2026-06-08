@@ -619,41 +619,41 @@ _b64uToUint8(b64u) {
 },
 
 async setupPush() {
-  alert('setupPush called');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-  alert('不支持：sw=' + ('serviceWorker' in navigator) + ' push=' + ('PushManager' in window));
-  return;
-}
-alert('SW和Push都支持，继续执行');
-  try {
-  alert('1: getting SW registration');
-  const reg = await navigator.serviceWorker.ready;
-  alert('2: got reg, getting subscription');
-  let sub = await reg.pushManager.getSubscription();
-  alert('3: existing sub=' + !!sub);
-  if (!sub) {
-    alert('4: requesting permission');
-    const perm = await Notification.requestPermission();
-    alert('5: perm=' + perm);
-    if (perm !== 'granted') return;
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: App._b64uToUint8(VAPID_PUBLIC_KEY),
-    });
-    alert('6: subscribed');
+    console.log('[Push] 浏览器不支持 Web Push');
+    return;
   }
-  const subJson = sub.toJSON();
-  const { error } = await db.from('wf_push_subscriptions').upsert({
-    user_key:   me.user_key,
-    endpoint:   subJson.endpoint,
-    p256dh:     subJson.keys?.p256dh ?? '',
-    auth:       subJson.keys?.auth   ?? '',
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'endpoint' });
-  alert('7: saved, error=' + error);
-} catch(e) {
-  alert('ERROR: ' + e.message);
-}
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        console.log('[Push] 用户拒绝通知权限');
+        return;
+      }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: App._b64uToUint8(VAPID_PUBLIC_KEY),
+      });
+      console.log('[Push] 新订阅成功');
+    } else {
+      console.log('[Push] 已有订阅，同步中');
+    }
+    const subJson = sub.toJSON();
+    const { error } = await db.from('wf_push_subscriptions').upsert({
+      user_key:   me.user_key,
+      endpoint:   subJson.endpoint,
+      p256dh:     subJson.keys?.p256dh ?? '',
+      auth:       subJson.keys?.auth   ?? '',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'endpoint' });
+    if (error) console.error('[Push] 存订阅失败:', error);
+    else console.log('[Push] 订阅已同步');
+  } catch(e) {
+    console.error('[Push] setupPush 错误:', e);
+  }
+},
 
 // 调用 Edge Function 向指定用户的所有设备推送通知
 async sendPushTo(toKey, title, body, tag) {
