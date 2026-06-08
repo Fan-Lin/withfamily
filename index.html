@@ -620,7 +620,11 @@ _b64uToUint8(b64u) {
 
 async setupPush() {
   alert('setupPush called');
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+  alert('不支持：sw=' + ('serviceWorker' in navigator) + ' push=' + ('PushManager' in window));
+  return;
+}
+alert('SW和Push都支持，继续执行');
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
