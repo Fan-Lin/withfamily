@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1f2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WithFamily">
+<title>WithFamily · 家庭报平安</title>
+<link rel="manifest" href="manifest.json">
+
+<!-- Supabase JS SDK v2 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<style>
+/* ===== CSS Variables ===== */
+:root {
+  --bg:        #111827;
+  --surface:   #1f2937;
+  --surface2:  #374151;
+  --border:    #374151;
+  --text:      #f9fafb;
+  --text-dim:  #9ca3af;
+  --text-mute: #6b7280;
+  --green:     #22c55e;
+  --yellow:    #f59e0b;
+  --red:       #ef4444;
+  --blue:      #3b82f6;
+  --purple:    #8b5cf6;
+  --radius:    16px;
+  --radius-sm: 10px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Screen manager ===== */
+.screen { display: none; height: 100dvh; flex-direction: column; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* ===== Login screen ===== */
+#screen-login {
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 32px;
+  background: radial-gradient(ellipse at 50% 0%, #1e3a5f 0%, var(--bg) 60%);
+}
+.login-logo {
+  font-size: 64px;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.login-title { font-size: 28px; font-weight: 700; letter-spacing: .5px; }
+.login-subtitle { color: var(--text-dim); font-size: 15px; text-align: center; }
+.login-form { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ===== Generic form elements ===== */
+input[type=text], input[type=password] {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color .2s;
+}
+input:focus { border-color: var(--blue); }
+
+.btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 16px; font-weight: 600; cursor: pointer;
+  transition: transform .12s, opacity .2s, box-shadow .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(.96); }
+.btn-primary   { background: var(--blue);   color: #fff; }
+.btn-green     { background: var(--green);  color: #fff; }
+.btn-yellow    { background: var(--yellow); color: #000; }
+.btn-red       { background: var(--red);    color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text); }
+.btn-ghost     { background: transparent; border: 1.5px solid var(--border); color: var(--text-dim); }
+.btn:disabled  { opacity: .45; pointer-events: none; }
+
+/* ===== App header ===== */
+.app-header {
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.app-header h1 { font-size: 18px; font-weight: 700; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.icon-btn {
+  width: 36px; height: 36px;
+  background: var(--surface2);
+  border: none; border-radius: 50%;
+  color: var(--text-dim); font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== Status badge ===== */
+.status-dot {
+  display: inline-block;
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.status-dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.warning { background: var(--yellow); }
+.status-dot.alert   { background: var(--red); animation: blink 1s infinite; }
+.status-dot.unknown { background: var(--text-mute); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ===== Connection indicator ===== */
+.conn-indicator {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-mute);
+}
+
+/* ===== Scroll area ===== */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px 80px;
+}
+
+/* ===== Bottom tab bar ===== */
+.tab-bar {
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.tab-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 10px 4px 8px;
+  background: none; border: none; cursor: pointer; color: var(--text-mute);
+  font-size: 10px; font-weight: 500;
+  -webkit-tap-highlight-color: transparent; transition: color .15s;
+}
+.tab-item .tab-icon { font-size: 22px; }
+.tab-item.active { color: var(--blue); }
+
+/* ===== Section title ===== */
+.section-title {
+  font-size: 13px; font-weight: 600; color: var(--text-mute);
+  text-transform: uppercase; letter-spacing: .8px;
+  margin: 16px 0 10px;
+}
+
+/* ===== Member card ===== */
+.member-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 10px;
+  transition: border-color .2s;
+}
+.member-card.alert-border { border-color: var(--red); }
+.member-card.warn-border  { border-color: var(--yellow); }
+
+.member-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; flex-shrink: 0;
+  position: relative;
+}
+.avatar-badge {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+}
+.avatar-badge.online  { background: var(--green); }
+.avatar-badge.warning { background: var(--yellow); }
+.avatar-badge.alert   { background: var(--red); }
+.avatar-badge.unknown { background: var(--text-mute); }
+
+.member-info { flex: 1; min-width: 0; }
+.member-name { font-size: 17px; font-weight: 600; }
+.member-role { font-size: 12px; color: var(--text-mute); margin-top: 2px; }
+.member-last { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+.member-actions { display: flex; flex-direction: column; gap: 6px; }
+.nudge-btn {
+  padding: 8px 14px;
+  background: var(--surface2);
+  border: none; border-radius: 8px;
+  color: var(--text-dim); font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s, color .15s;
+}
+.nudge-btn:active { background: var(--blue); color: #fff; }
+
+/* ===== Check-in buttons (elder view) ===== */
+#screen-elder {
+  background: radial-gradient(ellipse at 50% 10%, #0f2027 0%, var(--bg) 70%);
+}
+.elder-header {
+  padding: 20px 20px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.elder-header h1 { font-size: 20px; font-weight: 700; }
+.elder-scroll { flex: 1; overflow-y: auto; padding: 8px 16px 40px; }
+
+.elder-greeting {
+  font-size: 22px; font-weight: 700; margin-bottom: 6px;
+}
+.elder-subtext { font-size: 15px; color: var(--text-dim); margin-bottom: 20px; }
+
+.big-btn {
+  width: 100%;
+  padding: 28px 20px;
+  border: none; border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 8px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  font-size: 22px; font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 8px 32px rgba(0,0,0,.3);
+  transition: transform .12s, box-shadow .12s;
+}
+.big-btn:active { transform: scale(.97); box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.big-btn .big-btn-icon { font-size: 44px; }
+.big-btn .big-btn-label { font-size: 22px; font-weight: 700; }
+.big-btn .big-btn-sub { font-size: 14px; opacity: .75; font-weight: 400; }
+.big-btn-safe   { background: linear-gradient(135deg, #166534, #22c55e); color: #fff; }
+.big-btn-home   { background: linear-gradient(135deg, #1e3a5f, #3b82f6); color: #fff; }
+.big-btn-sleep  { background: linear-gradient(135deg, #3b0764, #8b5cf6); color: #fff; }
+
+.family-status-row {
+  display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.family-chip {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px;
+}
+
+/* ===== Event feed ===== */
+.event-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.event-item:last-child { border-bottom: none; }
+.event-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.event-content { flex: 1; }
+.event-msg { font-size: 14px; }
+.event-time { font-size: 12px; color: var(--text-mute); margin-top: 3px; }
+.event-unread { background: var(--blue); }
+
+.confirm-btn {
+  padding: 6px 12px;
+  background: var(--green); border: none;
+  border-radius: 8px; color: #fff; font-size: 12px; font-weight: 600;
+  cursor: pointer; flex-shrink: 0; align-self: center;
+}
+.confirmed-tag {
+  font-size: 11px; color: var(--green);
+  flex-shrink: 0; align-self: center;
+}
+
+/* ===== Admin screen ===== */
+.admin-section {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.admin-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.member-list-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.member-list-item:last-child { border-bottom: none; }
+.del-btn {
+  background: none; border: none;
+  color: var(--red); font-size: 18px; cursor: pointer;
+  padding: 4px; flex-shrink: 0;
+}
+.form-row { display: flex; gap: 8px; margin-top: 10px; }
+.form-row input { flex: 1; padding: 10px 12px; font-size: 14px; }
+.form-row .btn { padding: 10px 16px; font-size: 14px; white-space: nowrap; }
+
+select {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+/* ===== Full-screen alert overlay ===== */
+#alert-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(239,68,68,.92);
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px; padding: 40px;
+  text-align: center;
+  animation: alertPulse 1s ease-in-out infinite alternate;
+}
+#alert-overlay.show { display: flex; }
+@keyframes alertPulse {
+  from { background: rgba(239,68,68,.88); }
+  to   { background: rgba(239,68,68,.98); }
+}
+#alert-overlay .alert-icon { font-size: 80px; }
+#alert-overlay h2 { font-size: 28px; font-weight: 700; color: #fff; }
+#alert-overlay p  { font-size: 18px; color: rgba(255,255,255,.85); }
+#alert-overlay .btn { font-size: 18px; padding: 18px 40px; border-radius: 16px; }
+
+/* ===== Toast ===== */
+#toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surface2); color: var(--text);
+  padding: 10px 20px; border-radius: 24px;
+  font-size: 14px; font-weight: 500;
+  opacity: 0; transition: opacity .25s, transform .25s;
+  pointer-events: none; z-index: 500; white-space: nowrap;
+  box-shadow: var(--shadow);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== Loading spinner ===== */
+.spinner {
+  width: 24px; height: 24px;
+  border: 3px solid var(--surface2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== Empty state ===== */
+.empty-state {
+  text-align: center; padding: 40px 20px; color: var(--text-mute);
+}
+.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ===== Misc utilities ===== */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.gap-8 { gap: 8px; }
+.full-width { width: 100%; }
+.mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="screen-login" class="screen active">
+  <div class="login-logo">🏠</div>
+  <h2 class="login-title">WithFamily</h2>
+  <p class="login-subtitle">家庭报平安，互相知道平安</p>
+
+  <div class="login-form">
+    <input type="text" id="login-name" placeholder="你的名字（如：妈妈）" maxlength="20">
+    <select id="login-role">
+      <option value="">选择角色</option>
+      <option value="elder">长辈端（大按钮模式）</option>
+      <option value="young">年轻人端（完整界面）</option>
+      <option value="admin">管理员</option>
+    </select>
+    <input type="password" id="login-pin" placeholder="通行密码" maxlength="30">
+    <button class="btn btn-primary" onclick="App.login()">进入 →</button>
+  </div>
+</div>
+
+<!-- ===================== ELDER SCREEN ===================== -->
+<div id="screen-elder" class="screen">
+  <div class="elder-header">
+    <h1>🏠 WithFamily</h1>
+    <div class="header-actions">
+      <div class="conn-indicator">
+        <span class="status-dot" id="elder-conn-dot"></span>
+        <span id="elder-conn-label">连接中</span>
+      </div>
+      <button class="icon-btn" onclick="App.logout()" title="退出">↩</button>
+    </div>
+  </div>
+
+  <div class="elder-scroll">
+    <p class="elder-greeting" id="elder-greeting">早安！</p>
+    <p class="elder-subtext">今天也要记得报平安哦 💙</p>
+
+    <button class="big-btn big-btn-safe" onclick="App.elderCheckin('safe')">
+      <span class="big-btn-icon">🟢</span>
+      <span class="big-btn-label">我很好</span>
+      <span class="big-btn-sub">报个平安</span>
+    </button>
+
+    <button class="big-btn big-btn-home" onclick="App.elderCheckin('home')">
+      <span class="big-btn-icon">🏠</span>
+      <span class="big-btn-label">我到家了</span>
+      <span class="big-btn-sub">安全到家</span>
+    </button>
+
+    <button class="big-btn big-btn-sleep" onclick="App.elderCheckin('sleep')">
+      <span class="big-btn-icon">🌙</span>
+      <span class="big-btn-label">我去睡了</span>
+      <span class="big-btn-sub">晚安</span>
+    </button>
+
+    <div class="section-title" style="margin-top:24px">家人状态</div>
+    <div class="family-status-row" id="elder-family-row">
+      <div class="family-chip" style="color:var(--text-mute)">加载中…</div>
+    </div>
+
+    <!-- Pending alerts for elder to confirm -->
+    <div id="elder-pending" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<!-- ===================== YOUNG SCREEN ===================== -->
+<div id="screen-young" class="screen">
+  <div class="app-header">
+    <h1>🏠 WithFamily</h1>
+    <div class="header-actions">
+      <div class="conn-indicator">
+        <span class="status-dot" id="young-conn-dot"></span>
+        <span id="young-conn-label">连接中</span>
+      </div>
+      <button class="icon-btn" onclick="App.logout()">↩</button>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-item active" id="tab-home" onclick="App.switchTab('home')">
+      <span class="tab-icon">🏠</span>家庭
+    </button>
+    <button class="tab-item" id="tab-events" onclick="App.switchTab('events')">
+      <span class="tab-icon">📋</span>动态
+    </button>
+    <button class="tab-item" id="tab-me" onclick="App.switchTab('me')">
+      <span class="tab-icon">👤</span>我
+    </button>
+  </div>
+
+  <!-- Tab: home -->
+  <div id="tab-content-home" class="scroll-area">
+    <div class="section-title">家人状态</div>
+    <div id="young-members">
+      <div class="flex-center" style="padding:40px"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- Tab: events -->
+  <div id="tab-content-events" class="scroll-area" style="display:none">
+    <div class="section-title">最新动态</div>
+    <div id="young-events">
+      <div class="flex-center" style="padding:40px"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- Tab: me -->
+  <div id="tab-content-me" class="scroll-area" style="display:none">
+    <div class="section-title">我的打卡</div>
+    <button class="btn btn-green full-width mt-8" onclick="App.selfCheckin('safe')">🟢 我很好 · 报个平安</button>
+    <button class="btn btn-primary full-width mt-8" onclick="App.selfCheckin('home')">🏠 我到家了</button>
+    <button class="btn btn-secondary full-width mt-8" onclick="App.selfCheckin('sleep')">🌙 我去睡了</button>
+    <div class="section-title">账号</div>
+    <button class="btn btn-ghost full-width mt-8" onclick="App.logout()">退出登录</button>
+  </div>
+</div>
+
+<!-- ===================== ADMIN SCREEN ===================== -->
+<div id="screen-admin" class="screen">
+  <div class="app-header">
+    <h1>⚙️ 管理后台</h1>
+    <button class="icon-btn" onclick="App.logout()">↩</button>
+  </div>
+  <div class="scroll-area">
+
+    <!-- Members -->
+    <div class="admin-section">
+      <h3>👥 家庭成员</h3>
+      <div id="admin-member-list"></div>
+      <div class="form-row mt-12">
+        <input type="text" id="new-member-name" placeholder="姓名（如：奶奶）">
+        <input type="text" id="new-member-emoji" placeholder="🧓" style="width:60px;flex:none">
+        <select id="new-member-role" style="width:auto;flex:1;margin:0">
+          <option value="elder">长辈</option>
+          <option value="young">年轻人</option>
+        </select>
+        <button class="btn btn-primary" onclick="App.addMember()">+添加</button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="admin-section">
+      <h3>🔔 提醒设置</h3>
+      <label style="font-size:14px;color:var(--text-dim)">黄色警告阈值（小时）</label>
+      <input type="text" id="setting-warn-hours" placeholder="12" style="margin-top:6px">
+      <label style="font-size:14px;color:var(--text-dim);margin-top:12px;display:block">红色警报阈值（小时）</label>
+      <input type="text" id="setting-alert-hours" placeholder="24" style="margin-top:6px">
+      <button class="btn btn-primary full-width mt-12" onclick="App.saveSettings()">保存设置</button>
+    </div>
+
+    <!-- History -->
+    <div class="admin-section">
+      <h3>📊 最近事件</h3>
+      <div id="admin-events"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ALERT OVERLAY ===================== -->
+<div id="alert-overlay">
+  <div class="alert-icon" id="alert-overlay-icon">🚨</div>
+  <h2 id="alert-overlay-title">有消息！</h2>
+  <p id="alert-overlay-body">有人发来提醒</p>
+  <button class="btn btn-primary" onclick="App.confirmAlert()">✅ 我收到了</button>
+</div>
+
+<!-- ===================== TOAST ===================== -->
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const SUPABASE_URL = 'https://slzqgtgmzqcqtnhnqoms.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_u91QHSj9kppOiBPvvCoBfw_vvZgihUT';
+const ADMIN_PASSWORD = 'WF-7k9m2x';
+
+// Default thresholds (overridden by wf_settings)
+let WARN_HOURS  = 12;
+let ALERT_HOURS = 24;
+
+/* ============================================================
+   SUPABASE CLIENT
+   ============================================================ */
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let currentUser   = null;   // { name, role }
+let members       = [];     // wf_members rows
+let events        = [];     // wf_events rows (recent 50)
+let realtimeSub   = null;
+let pollTimer     = null;
+let alertPending  = null;   // event id waiting confirmation
+let connectedRT   = false;
+
+/* ============================================================
+   APP OBJECT
+   ============================================================ */
+const App = {
+
+  /* ---------- LOGIN / LOGOUT ---------- */
+  async login() {
+    const name = document.getElementById('login-name').value.trim();
+    const role = document.getElementById('login-role').value;
+    const pin  = document.getElementById('login-pin').value;
+
+    if (!name) return App.toast('请输入你的名字');
+    if (!role) return App.toast('请选择角色');
+
+    // Fetch stored password from wf_settings
+    let storedPw = ADMIN_PASSWORD; // fallback
+    try {
+      const { data } = await db.from('wf_settings').select('value').eq('key','admin_password').single();
+      if (data?.value) storedPw = data.value;
+    } catch(_) {}
+
+    // Admin requires admin password
+    if (role === 'admin' && pin !== storedPw && pin !== ADMIN_PASSWORD) {
+      return App.toast('管理员密码错误');
+    }
+
+    // Regular members need family password
+    if (role !== 'admin') {
+      let familyPw = storedPw;
+      try {
+        const { data } = await db.from('wf_settings').select('value').eq('key','family_password').single();
+        if (data?.value) familyPw = data.value;
+      } catch(_) {}
+      if (pin !== familyPw && pin !== ADMIN_PASSWORD) {
+        return App.toast('密码错误');
+      }
+    }
+
+    currentUser = { name, role };
+    localStorage.setItem('wf_user', JSON.stringify(currentUser));
+
+    // Register member if not exists
+    if (role !== 'admin') {
+      await App.ensureMember(name, role);
+    }
+
+    await App.loadSettings();
+    await App.loadData();
+    App.startRealtime();
+    App.startPoll();
+    App.showScreen(role === 'elder' ? 'elder' : role === 'admin' ? 'admin' : 'young');
+    App.toast('欢迎，' + name + '！');
+  },
+
+  logout() {
+    App.stopRealtime();
+    App.stopPoll();
+    currentUser = null;
+    localStorage.removeItem('wf_user');
+    App.showScreen('login');
+  },
+
+  async autoLogin() {
+    const saved = localStorage.getItem('wf_user');
+    if (!saved) return;
+    try {
+      currentUser = JSON.parse(saved);
+      await App.loadSettings();
+      await App.loadData();
+      App.startRealtime();
+      App.startPoll();
+      App.showScreen(currentUser.role === 'elder' ? 'elder' : currentUser.role === 'admin' ? 'admin' : 'young');
+    } catch(_) {
+      localStorage.removeItem('wf_user');
+    }
+  },
+
+  /* ---------- ENSURE MEMBER ---------- */
+  async ensureMember(name, role) {
+    const { data } = await db.from('wf_members').select('id').eq('name', name).maybeSingle();
+    if (!data) {
+      const emoji = role === 'elder' ? '🧓' : '👤';
+      await db.from('wf_members').insert({ name, role, emoji, status: 'unknown', last_checkin: null });
+    }
+  },
+
+  /* ---------- LOAD SETTINGS ---------- */
+  async loadSettings() {
+    try {
+      const { data } = await db.from('wf_settings').select('key,value');
+      if (!data) return;
+      data.forEach(r => {
+        if (r.key === 'warn_hours')  WARN_HOURS  = parseInt(r.value) || 12;
+        if (r.key === 'alert_hours') ALERT_HOURS = parseInt(r.value) || 24;
+      });
+      const wh = document.getElementById('setting-warn-hours');
+      const ah = document.getElementById('setting-alert-hours');
+      if (wh) wh.value = WARN_HOURS;
+      if (ah) ah.value = ALERT_HOURS;
+    } catch(_) {}
+  },
+
+  /* ---------- LOAD DATA ---------- */
+  async loadData() {
+    const [mRes, eRes] = await Promise.all([
+      db.from('wf_members').select('*').order('created_at', { ascending: true }),
+      db.from('wf_events').select('*').order('created_at', { ascending: false }).limit(50)
+    ]);
+    members = mRes.data || [];
+    events  = eRes.data || [];
+    App.computeStatuses();
+    App.renderAll();
+  },
+
+  /* ---------- COMPUTE STATUS FROM LAST CHECKIN ---------- */
+  computeStatuses() {
+    const now = Date.now();
+    members.forEach(m => {
+      if (!m.last_checkin) { m._status = 'unknown'; return; }
+      const hrs = (now - new Date(m.last_checkin).getTime()) / 3600000;
+      if (hrs < WARN_HOURS)  m._status = 'online';
+      else if (hrs < ALERT_HOURS) m._status = 'warning';
+      else m._status = 'alert';
+    });
+  },
+
+  /* ---------- RENDER ALL VIEWS ---------- */
+  renderAll() {
+    App.renderYoungMembers();
+    App.renderYoungEvents();
+    App.renderElderFamily();
+    App.renderAdminMembers();
+    App.renderAdminEvents();
+    App.checkAlerts();
+  },
+
+  /* ---------- YOUNG: MEMBERS ---------- */
+  renderYoungMembers() {
+    const el = document.getElementById('young-members');
+    if (!el) return;
+    if (!members.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>暂无成员</p></div>';
+      return;
+    }
+    el.innerHTML = members.map(m => {
+      const st = m._status || 'unknown';
+      const border = st === 'alert' ? 'alert-border' : st === 'warning' ? 'warn-border' : '';
+      const dotClass = st;
+      const lastText = m.last_checkin ? '最后：' + App.timeAgo(m.last_checkin) : '从未打卡';
+      return `
+        <div class="member-card ${border}">
+          <div class="member-avatar">
+            ${m.emoji || '👤'}
+            <div class="avatar-badge ${dotClass}"></div>
+          </div>
+          <div class="member-info">
+            <div class="member-name">${App.esc(m.name)}</div>
+            <div class="member-role">${m.role === 'elder' ? '长辈' : '家人'}</div>
+            <div class="member-last">${lastText}</div>
+          </div>
+          <div class="member-actions">
+            <button class="nudge-btn" onclick="App.nudge('${m.id}','${App.esc(m.name)}')">👋 催一下</button>
+          </div>
+        </div>`;
+    }).join('');
+  },
+
+  /* ---------- YOUNG: EVENTS ---------- */
+  renderYoungEvents() {
+    const el = document.getElementById('young-events');
+    if (!el) return;
+    if (!events.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>暂无动态</p></div>';
+      return;
+    }
+    el.innerHTML = events.map(e => {
+      const icon = App.eventIcon(e.type);
+      const needConfirm = e.type === 'nudge' && e.target_member === currentUser?.name && !e.confirmed;
+      const isConfirmed = e.type === 'nudge' && e.confirmed;
+      return `
+        <div class="event-item">
+          <div class="event-icon">${icon}</div>
+          <div class="event-content">
+            <div class="event-msg">${App.esc(e.message || '')}</div>
+            <div class="event-time">${App.timeAgo(e.created_at)}</div>
+          </div>
+          ${needConfirm ? `<button class="confirm-btn" onclick="App.confirmEvent('${e.id}')">确认</button>` : ''}
+          ${isConfirmed ? `<span class="confirmed-tag">✅已确认</span>` : ''}
+        </div>`;
+    }).join('');
+  },
+
+  /* ---------- ELDER: FAMILY ROW ---------- */
+  renderElderFamily() {
+    const el = document.getElementById('elder-family-row');
+    if (!el) return;
+    // greeting
+    const hour = new Date().getHours();
+    const greeting = hour < 6 ? '凌晨好！' : hour < 12 ? '早安！☀️' : hour < 18 ? '下午好！' : '晚上好！🌙';
+    const ge = document.getElementById('elder-greeting');
+    if (ge) ge.textContent = (currentUser?.name || '') + '，' + greeting;
+
+    if (!members.length) {
+      el.innerHTML = '<div class="family-chip" style="color:var(--text-mute)">暂无其他成员</div>';
+      return;
+    }
+    const others = members.filter(m => m.name !== currentUser?.name);
+    if (!others.length) {
+      el.innerHTML = '<div class="family-chip" style="color:var(--text-mute)">暂无其他成员</div>';
+      return;
+    }
+    el.innerHTML = others.map(m => {
+      const st = m._status || 'unknown';
+      const dot = `<span class="status-dot ${st}"></span>`;
+      return `<div class="family-chip">${m.emoji || '👤'} ${dot} <span>${App.esc(m.name)}</span></div>`;
+    }).join('');
+
+    // Show pending nudges for elder
+    const pending = events.filter(e => e.type === 'nudge' && e.target_member === currentUser?.name && !e.confirmed);
+    const pel = document.getElementById('elder-pending');
+    if (pel) {
+      if (pending.length) {
+        pel.innerHTML = pending.map(e => `
+          <div style="background:var(--surface);border:1.5px solid var(--yellow);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:28px">👋</div>
+            <div style="flex:1">
+              <div style="font-size:16px;font-weight:600">${App.esc(e.message || '')}</div>
+              <div style="font-size:12px;color:var(--text-mute);margin-top:4px">${App.timeAgo(e.created_at)}</div>
+            </div>
+            <button class="confirm-btn" onclick="App.confirmEvent('${e.id}')">我看到了</button>
+          </div>`).join('');
+      } else {
+        pel.innerHTML = '';
+      }
+    }
+  },
+
+  /* ---------- ADMIN: MEMBERS ---------- */
+  renderAdminMembers() {
+    const el = document.getElementById('admin-member-list');
+    if (!el) return;
+    if (!members.length) {
+      el.innerHTML = '<p style="color:var(--text-mute);font-size:14px">暂无成员</p>';
+      return;
+    }
+    el.innerHTML = members.map(m => `
+      <div class="member-list-item">
+        <span style="font-size:22px">${m.emoji || '👤'}</span>
+        <span style="flex:1">${App.esc(m.name)}</span>
+        <span style="font-size:12px;color:var(--text-mute)">${m.role === 'elder' ? '长辈' : '年轻人'}</span>
+        <button class="del-btn" onclick="App.deleteMember('${m.id}','${App.esc(m.name)}')">🗑</button>
+      </div>`).join('');
+  },
+
+  /* ---------- ADMIN: EVENTS ---------- */
+  renderAdminEvents() {
+    const el = document.getElementById('admin-events');
+    if (!el) return;
+    const recent = events.slice(0, 20);
+    if (!recent.length) {
+      el.innerHTML = '<p style="color:var(--text-mute);font-size:14px">暂无记录</p>';
+      return;
+    }
+    el.innerHTML = recent.map(e => `
+      <div class="event-item">
+        <div class="event-icon">${App.eventIcon(e.type)}</div>
+        <div class="event-content">
+          <div class="event-msg">${App.esc(e.message || '')}</div>
+          <div class="event-time">${App.timeAgo(e.created_at)} ${e.confirmed ? '· ✅已确认' : ''}</div>
+        </div>
+      </div>`).join('');
+  },
+
+  /* ---------- CHECK & TRIGGER ALERTS ---------- */
+  checkAlerts() {
+    if (!currentUser) return;
+    // Check for unconfirmed nudges targeting me
+    const myNudge = events.find(e =>
+      e.type === 'nudge' &&
+      e.target_member === currentUser.name &&
+      !e.confirmed
+    );
+    if (myNudge && alertPending !== myNudge.id) {
+      alertPending = myNudge.id;
+      App.showAlertOverlay('👋', '有人催你啦！', myNudge.message || '家人想知道你是否平安', myNudge.id);
+    }
+
+    // Check red-alert members (for non-admin, non-self)
+    if (currentUser.role !== 'admin') {
+      const alertMembers = members.filter(m => m._status === 'alert' && m.name !== currentUser.name);
+      if (alertMembers.length && !alertPending) {
+        alertPending = 'status-' + alertMembers[0].id;
+        App.showAlertOverlay('🚨', alertMembers[0].name + ' 长时间没有打卡！', '请联系确认是否安全', null);
+      }
+    }
+  },
+
+  showAlertOverlay(icon, title, body, eventId) {
+    document.getElementById('alert-overlay-icon').textContent = icon;
+    document.getElementById('alert-overlay-title').textContent = title;
+    document.getElementById('alert-overlay-body').textContent = body;
+    document.getElementById('alert-overlay').dataset.eventId = eventId || '';
+    document.getElementById('alert-overlay').classList.add('show');
+    App.vibrate([200, 100, 200, 100, 200]);
+    App.speak(title + ' ' + body);
+  },
+
+  async confirmAlert() {
+    const overlay = document.getElementById('alert-overlay');
+    const eventId = overlay.dataset.eventId;
+    overlay.classList.remove('show');
+    alertPending = null;
+    if (eventId) {
+      await App.confirmEvent(eventId);
+    }
+  },
+
+  /* ---------- CHECKIN ---------- */
+  async elderCheckin(type) {
+    if (!currentUser) return;
+    const msgs = { safe: '我很好，报个平安 🟢', home: '我到家了 🏠', sleep: '我去睡了，晚安 🌙' };
+    await App.doCheckin(type, msgs[type]);
+  },
+
+  async selfCheckin(type) {
+    if (!currentUser) return;
+    const msgs = { safe: '我很好，报个平安 🟢', home: '我到家了 🏠', sleep: '我去睡了，晚安 🌙' };
+    await App.doCheckin(type, msgs[type]);
+  },
+
+  async doCheckin(type, defaultMsg) {
+    const now = new Date().toISOString();
+    // Update member last_checkin & status
+    await db.from('wf_members')
+      .update({ last_checkin: now, status: 'online' })
+      .eq('name', currentUser.name);
+
+    // Insert event
+    await db.from('wf_events').insert({
+      member_name: currentUser.name,
+      type: 'checkin',
+      subtype: type,
+      message: currentUser.name + ' · ' + defaultMsg,
+      target_member: null,
+      confirmed: true
+    });
+
+    App.toast('✅ 已打卡！');
+    App.vibrate([50]);
+    await App.loadData();
+  },
+
+  /* ---------- NUDGE ---------- */
+  async nudge(memberId, targetName) {
+    if (!currentUser) return;
+    const msg = currentUser.name + ' 想知道你是否平安，快打个卡吧 👋';
+    await db.from('wf_events').insert({
+      member_name: currentUser.name,
+      type: 'nudge',
+      message: msg,
+      target_member: targetName,
+      confirmed: false
+    });
+    App.toast('已发出催促！');
+    await App.loadData();
+  },
+
+  /* ---------- CONFIRM EVENT ---------- */
+  async confirmEvent(eventId) {
+    await db.from('wf_events').update({ confirmed: true }).eq('id', eventId);
+    App.toast('✅ 已确认');
+    await App.loadData();
+  },
+
+  /* ---------- ADMIN: ADD / DELETE MEMBER ---------- */
+  async addMember() {
+    const name  = document.getElementById('new-member-name').value.trim();
+    const emoji = document.getElementById('new-member-emoji').value.trim() || '👤';
+    const role  = document.getElementById('new-member-role').value;
+    if (!name) return App.toast('请输入名字');
+    await db.from('wf_members').insert({ name, emoji, role, status: 'unknown' });
+    document.getElementById('new-member-name').value  = '';
+    document.getElementById('new-member-emoji').value = '';
+    App.toast('已添加 ' + name);
+    await App.loadData();
+  },
+
+  async deleteMember(id, name) {
+    if (!confirm('确定删除 ' + name + '？')) return;
+    await db.from('wf_members').delete().eq('id', id);
+    App.toast('已删除');
+    await App.loadData();
+  },
+
+  /* ---------- ADMIN: SAVE SETTINGS ---------- */
+  async saveSettings() {
+    const wh = parseInt(document.getElementById('setting-warn-hours').value) || 12;
+    const ah = parseInt(document.getElementById('setting-alert-hours').value) || 24;
+    const upsert = async (key, value) => {
+      await db.from('wf_settings').upsert({ key, value: String(value) }, { onConflict: 'key' });
+    };
+    await upsert('warn_hours',  wh);
+    await upsert('alert_hours', ah);
+    WARN_HOURS  = wh;
+    ALERT_HOURS = ah;
+    App.toast('设置已保存 ✅');
+    App.computeStatuses();
+    App.renderAll();
+  },
+
+  /* ---------- REALTIME ---------- */
+  startRealtime() {
+    App.stopRealtime();
+    try {
+      realtimeSub = db
+        .channel('wf-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'wf_members' }, () => App.loadData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'wf_events'  }, () => App.loadData())
+        .subscribe((status) => {
+          connectedRT = (status === 'SUBSCRIBED');
+          App.updateConnIndicator();
+        });
+    } catch(e) {
+      console.warn('Realtime unavailable:', e);
+      connectedRT = false;
+      App.updateConnIndicator();
+    }
+  },
+
+  stopRealtime() {
+    if (realtimeSub) {
+      db.removeChannel(realtimeSub);
+      realtimeSub = null;
+    }
+    connectedRT = false;
+  },
+
+  /* ---------- POLLING FALLBACK ---------- */
+  startPoll() {
+    App.stopPoll();
+    pollTimer = setInterval(async () => {
+      if (!connectedRT) {
+        await App.loadData(); // poll when realtime is down
+      }
+      // Also always reload to check time-based status changes
+      App.computeStatuses();
+      App.renderAll();
+    }, 30000); // every 30s
+  },
+
+  stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  },
+
+  /* ---------- CONNECTION INDICATOR ---------- */
+  updateConnIndicator() {
+    ['elder', 'young'].forEach(role => {
+      const dot   = document.getElementById(role + '-conn-dot');
+      const label = document.getElementById(role + '-conn-label');
+      if (!dot || !label) return;
+      dot.className   = 'status-dot ' + (connectedRT ? 'online' : 'warning');
+      label.textContent = connectedRT ? '实时' : '轮询';
+    });
+  },
+
+  /* ---------- TAB SWITCHING ---------- */
+  switchTab(tab) {
+    ['home','events','me'].forEach(t => {
+      document.getElementById('tab-content-' + t).style.display = t === tab ? 'block' : 'none';
+      document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    });
+    if (tab === 'events') App.renderYoungEvents();
+  },
+
+  /* ---------- SCREEN NAVIGATION ---------- */
+  showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('screen-' + name);
+    if (el) el.classList.add('active');
+    if (name === 'elder') App.updateElderGreeting();
+  },
+
+  updateElderGreeting() {
+    const hour = new Date().getHours();
+    const greeting = hour < 6 ? '凌晨好！' : hour < 12 ? '早安！☀️' : hour < 18 ? '下午好！' : '晚上好！🌙';
+    const ge = document.getElementById('elder-greeting');
+    if (ge) ge.textContent = (currentUser?.name || '') + '，' + greeting;
+  },
+
+  /* ---------- UTILITY ---------- */
+  toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove('show'), 2800);
+  },
+
+  vibrate(pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(_) {}
+  },
+
+  speak(text) {
+    try {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN'; u.rate = 0.9;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    } catch(_) {}
+  },
+
+  eventIcon(type) {
+    const map = { checkin: '✅', nudge: '👋', alert: '🚨', system: '⚙️' };
+    return map[type] || '📌';
+  },
+
+  timeAgo(iso) {
+    if (!iso) return '未知';
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1)   return '刚刚';
+    if (mins < 60)  return mins + '分钟前';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)   return hrs + '小时前';
+    const days = Math.floor(hrs / 24);
+    return days + '天前';
+  },
+
+  esc(str) {
+    return String(str || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+};
+
+/* ============================================================
+   INIT
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  App.autoLogin();
+
+  // Allow Enter key in login
+  ['login-name','login-pin'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') App.login(); });
+  });
+});
+
+// Visibility change: reload data when coming back to foreground
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentUser) App.loadData();
+});
+</script>
+</body>
+</html>
