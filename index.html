@@ -4,10 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WithFamily">
+<!-- ✅ FIX: manifest link (was missing, caused PWA install to fail) -->
+<link rel="manifest" href="withfamily-manifest.json">
+<link rel="icon" href="icon-192.png">
 <title>WithFamily</title>
+<!-- ✅ FIX: register service worker (was missing, caused PWA install to fail) -->
+<script>if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./withfamily-sw.js').catch(()=>{}));</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 /* ── TOKENS ── */
@@ -24,6 +30,7 @@
   --yellow: #fbbf24;
   --red:    #f87171;
   --blue:   #60a5fa;
+  --purple: #a78bfa;
   --r:      18px;
   --rs:     11px;
   --shadow: 0 8px 32px rgba(0,0,0,.45);
@@ -54,244 +61,215 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
   transition:transform .1s, filter .15s, box-shadow .15s }
 .btn:active { transform:scale(.96); filter:brightness(.8) }
 .btn:disabled { opacity:.35; pointer-events:none }
-.bp { background:var(--blue); color:#fff; box-shadow:0 4px 16px rgba(96,165,250,.3) }
-.bg { background:var(--green); color:#0a0f1e; box-shadow:0 4px 16px rgba(52,211,153,.3) }
-.bs { background:var(--surf2); color:var(--text); border:1px solid var(--border) }
-.br { background:var(--red); color:#fff }
-.bgh { background:transparent; border:1px solid var(--border); color:var(--dim) }
+.bp  { background:var(--blue);   color:#fff;       box-shadow:0 4px 16px rgba(96,165,250,.3) }
+.bg  { background:var(--green);  color:#0a0f1e;    box-shadow:0 4px 16px rgba(52,211,153,.3) }
+.bs  { background:var(--surf2);  color:var(--text); border:1px solid var(--border) }
+.br  { background:var(--red);    color:#fff;       box-shadow:0 4px 16px rgba(248,113,113,.3) }
+.bgh { background:var(--surf3);  color:var(--dim);  border:1px solid var(--border) }
 .w100 { width:100% }
-.mt6 { margin-top:6px } .mt10 { margin-top:10px } .mt16 { margin-top:16px } .mt20 { margin-top:20px }
-
-/* ── ICON BTN ── */
-.ibtn { width:36px; height:36px; border-radius:50%; background:var(--surf2);
-  border:1px solid var(--border); color:var(--dim); font-size:15px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; transition:background .15s }
-.ibtn:active { background:var(--surf3) }
-
-/* ── INPUTS ── */
-input, select { width:100%; padding:13px 15px; background:var(--surf2);
-  border:1.5px solid var(--border); border-radius:var(--rs);
-  color:var(--text); font-size:15px; outline:none; transition:border-color .2s;
-  -webkit-appearance:none; appearance:none }
-input:focus, select:focus { border-color:var(--blue) }
-input::placeholder { color:var(--mute) }
-select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234a5a72' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 14px center; padding-right:36px }
-select option { background:var(--surf2) }
-label { font-size:12px; color:var(--dim); display:block; margin-bottom:5px; letter-spacing:.3px }
+.mt6  { margin-top:6px }
+.mt10 { margin-top:10px }
+.ibtn { background:transparent; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:4px 8px }
 
 /* ── SECTION LABEL ── */
-.slabel { font-size:11px; font-weight:700; color:var(--mute); letter-spacing:1px;
-  text-transform:uppercase; margin:22px 0 10px }
-.slabel:first-child { margin-top:6px }
+.slabel { font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+  color:var(--mute); margin:20px 0 10px }
+.slabel:first-child { margin-top:0 }
 
 /* ── CARD ── */
-.card { background:var(--surf); border:1px solid var(--border);
-  border-radius:var(--r); padding:16px; margin-bottom:10px;
-  transition:border-color .2s }
-.card.c-green { border-color:rgba(52,211,153,.4) }
-.card.c-yellow { border-color:rgba(251,191,36,.4) }
-.card.c-red { border-color:rgba(248,113,113,.5) }
+.card { background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:14px; margin-bottom:10px; transition:border-color .2s }
+.card.c-red    { border-color:rgba(248,113,113,.4); background:rgba(248,113,113,.06) }
+.card.c-yellow { border-color:rgba(251,191,36,.3);  background:rgba(251,191,36,.05) }
+.card.c-green  { border-color:rgba(52,211,153,.25); background:rgba(52,211,153,.04) }
+.card.c-purple { border-color:rgba(167,139,250,.3); background:rgba(167,139,250,.05) }
+.card.c-home   { border-color:rgba(96,165,250,.3);  background:rgba(96,165,250,.05) }
 
-/* ── STATUS DOT ── */
-.dot { width:9px; height:9px; border-radius:50%; flex-shrink:0 }
-.dot.online  { background:var(--green); box-shadow:0 0 7px var(--green) }
-.dot.warning { background:var(--yellow) }
-.dot.alert   { background:var(--red); animation:blink 1s infinite }
-.dot.unknown { background:var(--mute) }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
-
-/* ── MEMBER CARD ── */
-.mrow { display:flex; align-items:center; gap:14px }
-.mava { width:50px; height:50px; border-radius:50%; background:var(--surf2);
-  display:flex; align-items:center; justify-content:center;
-  font-size:26px; flex-shrink:0; position:relative;
-  border:1px solid var(--border) }
-.mbadge { position:absolute; bottom:-1px; right:-1px; width:16px; height:16px;
+/* ── MEMBER ROW ── */
+.mrow  { display:flex; align-items:center; gap:12px }
+.mava  { position:relative; width:44px; height:44px; border-radius:50%;
+  background:var(--surf2); display:flex; align-items:center; justify-content:center;
+  font-size:24px; flex-shrink:0 }
+.mbadge { position:absolute; bottom:1px; right:1px; width:12px; height:12px;
   border-radius:50%; border:2px solid var(--surf) }
-.mbadge.online  { background:var(--green); box-shadow:0 0 6px var(--green) }
+.mbadge.online  { background:var(--green) }
+.mbadge.home    { background:var(--blue) }
+.mbadge.sleep   { background:var(--purple) }
 .mbadge.warning { background:var(--yellow) }
-.mbadge.alert   { background:var(--red); animation:blink 1s infinite }
+.mbadge.alert   { background:var(--red); animation:pulse 1.5s infinite }
 .mbadge.unknown { background:var(--mute) }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 .minfo { flex:1; min-width:0 }
-.mname { font-size:16px; font-weight:700 }
-.mtime { font-size:12px; color:var(--dim); margin-top:4px }
-.mstat { font-size:13px; font-weight:600; margin-top:3px }
+.mname { font-size:15px; font-weight:600 }
+.mstat { font-size:13px; margin-top:2px; font-weight:500 }
 .mstat.online  { color:var(--green) }
+.mstat.home    { color:var(--blue) }
+.mstat.sleep   { color:var(--purple) }
 .mstat.warning { color:var(--yellow) }
 .mstat.alert   { color:var(--red) }
 .mstat.unknown { color:var(--mute) }
+.mtime { font-size:11px; color:var(--mute); margin-top:3px }
 
-/* ── NUDGE BTN ── */
-.nudge { padding:8px 14px; background:var(--surf2); border:1px solid var(--border);
-  border-radius:9px; color:var(--dim); font-size:13px; font-weight:500;
-  cursor:pointer; white-space:nowrap; flex-shrink:0; transition:all .15s }
-.nudge:active { background:var(--blue); color:#fff; border-color:var(--blue) }
+/* ── NUDGE BUTTON ── */
+.nudge { background:var(--surf3); border:1px solid var(--border); border-radius:8px;
+  color:var(--dim); font-size:12px; padding:6px 10px; cursor:pointer;
+  transition:opacity .15s; flex-shrink:0 }
+.nudge:active { opacity:.6 }
+.nudge:disabled { opacity:.3; pointer-events:none }
+
+/* ── CHIPS ── */
+.chips { display:flex; flex-wrap:wrap; gap:8px }
+.chip  { display:flex; align-items:center; gap:6px; background:var(--surf);
+  border:1px solid var(--border); border-radius:20px; padding:6px 12px }
+.chip.c-red    { border-color:rgba(248,113,113,.4) }
+.chip.c-yellow { border-color:rgba(251,191,36,.3) }
+.dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
+.dot.online  { background:var(--green) }
+.dot.home    { background:var(--blue) }
+.dot.sleep   { background:var(--purple) }
+.dot.warning { background:var(--yellow) }
+.dot.alert   { background:var(--red); animation:pulse 1.5s infinite }
+.dot.unknown { background:var(--mute) }
+.chip-name { font-size:13px; font-weight:600 }
+
+/* ── EVENTS ── */
+.ev { display:flex; align-items:flex-start; gap:10px; padding:10px 0;
+  border-bottom:1px solid var(--border) }
+.ev:last-child { border-bottom:none }
+.ev-icon { font-size:20px; flex-shrink:0; margin-top:1px }
+.ev-body { flex:1; min-width:0 }
+.ev-msg  { font-size:13px; line-height:1.4 }
+.ev-time { font-size:11px; color:var(--mute); margin-top:3px }
+.cbtn { background:var(--blue); color:#fff; border:none; border-radius:8px;
+  font-size:12px; padding:6px 10px; cursor:pointer; flex-shrink:0 }
+.ctag { font-size:11px; color:var(--green); flex-shrink:0; align-self:center }
+
+/* ── NUDGE CARD ── */
+.ncard { display:flex; align-items:center; gap:12px; background:var(--surf);
+  border:1px solid rgba(251,191,36,.3); border-radius:var(--r); padding:14px; margin-bottom:8px }
+.ncard-icon { font-size:28px; flex-shrink:0 }
+.ncard-body { flex:1; min-width:0 }
+.ncard-msg  { font-size:14px; line-height:1.4 }
+.ncard-time { font-size:11px; color:var(--mute); margin-top:4px }
+
+/* ── ELDER HEADER ── */
+.elder-hdr { padding:16px 18px; background:var(--surf); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0 }
+.elder-greeting { font-size:22px; font-weight:700; margin-bottom:6px }
+.elder-sub { font-size:14px; color:var(--dim) }
 
 /* ── BIG BUTTONS (elder) ── */
-.bbtn { width:100%; padding:24px 20px; border:none; border-radius:20px;
-  display:flex; align-items:center; gap:18px; margin-bottom:12px;
-  cursor:pointer; text-align:left; position:relative; overflow:hidden;
-  box-shadow:0 8px 28px rgba(0,0,0,.4);
-  transition:transform .1s, box-shadow .1s }
-.bbtn:active { transform:scale(.97); box-shadow:0 4px 14px rgba(0,0,0,.5) }
-.bbtn::before { content:''; position:absolute; inset:0; background:rgba(255,255,255,.04);
-  opacity:0; transition:opacity .15s }
-.bbtn:active::before { opacity:1 }
-.bicon { font-size:44px; flex-shrink:0; filter:drop-shadow(0 2px 6px rgba(0,0,0,.3)) }
-.btxt { flex:1 }
-.blabel { font-size:22px; font-weight:800; color:#fff; letter-spacing:.2px }
-.bsub   { font-size:13px; color:rgba(255,255,255,.65); margin-top:3px }
-.bb-safe  { background:linear-gradient(135deg,#064e3b,#059669,#34d399) }
-.bb-home  { background:linear-gradient(135deg,#1e3a5f,#2563eb,#60a5fa) }
-.bb-sleep { background:linear-gradient(135deg,#2e1065,#7c3aed,#a78bfa) }
-.bb-eat   { background:linear-gradient(135deg,#7c2d12,#ea580c,#fb923c) }
-.bb-default { background:linear-gradient(135deg,#164e63,#0891b2,#22d3ee) }
+.bbtn { display:flex; align-items:center; gap:14px; width:100%; padding:18px 20px;
+  border:none; border-radius:var(--r); cursor:pointer; margin-bottom:10px;
+  transition:transform .1s, filter .15s; text-align:left }
+.bbtn:active { transform:scale(.97); filter:brightness(.85) }
+.bicon { font-size:28px; line-height:1 }
+.btxt  {}
+.blabel { font-size:17px; font-weight:700; color:#fff }
+.bsub   { font-size:12px; margin-top:2px; opacity:.7; color:#fff }
+.bb-safe  { background:linear-gradient(135deg,#059669,#34d399); box-shadow:0 4px 20px rgba(52,211,153,.3) }
+.bb-home  { background:linear-gradient(135deg,#2563eb,#60a5fa); box-shadow:0 4px 20px rgba(96,165,250,.3) }
+.bb-sleep { background:linear-gradient(135deg,#6d28d9,#a78bfa); box-shadow:0 4px 20px rgba(167,139,250,.3) }
+.bb-eat   { background:linear-gradient(135deg,#b45309,#fbbf24); box-shadow:0 4px 20px rgba(251,191,36,.3) }
+.bb-default { background:var(--surf2); box-shadow:none }
 
-/* ── FAMILY CHIPS (elder) ── */
-.chips { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;
-  -webkit-overflow-scrolling:touch; scrollbar-width:none }
-.chips::-webkit-scrollbar { display:none }
-.chip { flex-shrink:0; background:var(--surf); border:1px solid var(--border);
-  border-radius:12px; padding:10px 14px; display:flex; align-items:center; gap:8px;
-  font-size:14px; transition:border-color .2s }
-.chip.c-red    { border-color:rgba(248,113,113,.5) }
-.chip.c-yellow { border-color:rgba(251,191,36,.4) }
-.chip-name { font-weight:500 }
-
-/* ── TAB BAR ── */
-.tabbar { display:flex; background:var(--surf); border-top:1px solid var(--border);
-  flex-shrink:0; padding-bottom:env(safe-area-inset-bottom,0) }
-.tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-  padding:10px 4px 8px; background:none; border:none; cursor:pointer;
-  color:var(--mute); font-size:10px; font-weight:600; letter-spacing:.3px;
-  transition:color .15s }
-.tab .ti { font-size:22px; transition:transform .15s }
-.tab.active { color:var(--blue) }
-.tab.active .ti { transform:translateY(-1px) }
+/* ── TABS ── */
+.tabbar { display:flex; background:var(--surf); border-bottom:1px solid var(--border);
+  flex-shrink:0 }
+.tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:10px 4px; background:none; border:none; color:var(--mute);
+  font-size:10px; cursor:pointer; transition:color .15s; border-top:2px solid transparent }
+.tab.active { color:var(--blue); border-top-color:var(--blue) }
+.ti { font-size:18px }
 .tab-pane { display:none }
 .tab-pane.active { display:block }
 
-/* ── EVENT FEED ── */
-.ev { display:flex; align-items:flex-start; gap:12px;
-  padding:13px 0; border-bottom:1px solid var(--border) }
-.ev:last-child { border-bottom:none }
-.ev-icon { font-size:20px; flex-shrink:0; margin-top:1px }
-.ev-body { flex:1 }
-.ev-msg  { font-size:14px; line-height:1.5; color:var(--text) }
-.ev-time { font-size:11px; color:var(--mute); margin-top:3px }
-.cbtn { padding:6px 12px; background:var(--green); border:none;
-  border-radius:8px; color:#0a0f1e; font-size:12px; font-weight:700;
-  cursor:pointer; flex-shrink:0; align-self:center }
-.ctag { font-size:11px; color:var(--green); font-weight:700;
-  flex-shrink:0; align-self:center }
-
-/* ── NUDGE CARD (elder incoming) ── */
-.ncard { background:var(--surf); border:1.5px solid rgba(251,191,36,.5);
-  border-radius:16px; padding:16px 18px; margin-bottom:10px;
-  display:flex; align-items:center; gap:14px;
-  box-shadow:0 4px 20px rgba(251,191,36,.1) }
-.ncard-icon { font-size:30px; flex-shrink:0 }
-.ncard-body { flex:1 }
-.ncard-msg  { font-size:15px; font-weight:600 }
-.ncard-time { font-size:12px; color:var(--mute); margin-top:3px }
-
-/* ── ADMIN ── */
-.acard { background:var(--surf); border:1px solid var(--border);
-  border-radius:var(--r); padding:18px; margin-bottom:12px }
-.acard h3 { font-size:13px; font-weight:700; color:var(--dim);
-  letter-spacing:.5px; text-transform:uppercase; margin-bottom:14px }
-.arow { display:flex; align-items:center; gap:10px;
-  padding:11px 0; border-bottom:1px solid var(--border) }
-.arow:last-child { border-bottom:none }
-.arow-info { flex:1; min-width:0 }
-.arow-name { font-size:15px; font-weight:600 }
-.arow-meta { font-size:12px; color:var(--mute); margin-top:2px }
-.delbtn { background:none; border:none; color:var(--red); font-size:18px;
-  cursor:pointer; padding:4px 6px; flex-shrink:0; opacity:.7; transition:opacity .15s }
-.delbtn:active { opacity:1 }
-.form-stack { display:flex; flex-direction:column; gap:8px; margin-top:14px }
-.form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px }
-.form-row3 { display:grid; grid-template-columns:1fr 80px auto; gap:8px; align-items:end }
-.form-row3 .btn { padding:13px 14px; font-size:14px; white-space:nowrap }
-.thresh-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px }
-
-/* ── CONNECTION STATUS ── */
-.conn { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--mute) }
-.cdot { width:7px; height:7px; border-radius:50%; background:var(--mute) }
-.cdot.rt { background:var(--green); box-shadow:0 0 5px var(--green) }
+/* ── CONN ── */
+.conn  { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--mute) }
+.cdot  { width:7px; height:7px; border-radius:50% }
+.cdot.rt   { background:var(--green) }
 .cdot.poll { background:var(--yellow) }
 
-/* ── SPINNER / EMPTY ── */
-.spinner { width:22px; height:22px; border:2.5px solid var(--surf2);
-  border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite }
+/* ── SPINNER ── */
+.cspinner { display:flex; justify-content:center; padding:30px }
+.spinner  { width:28px; height:28px; border:3px solid var(--border);
+  border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite }
 @keyframes spin { to { transform:rotate(360deg) } }
-.cspinner { display:flex; justify-content:center; padding:40px 0 }
-.empty { text-align:center; padding:40px 20px; color:var(--mute) }
-.empty-icon { font-size:36px; margin-bottom:10px }
 
-/* ── ALERT OVERLAY ── */
-#overlay { display:none; position:fixed; inset:0; z-index:1000;
-  flex-direction:column; align-items:center; justify-content:center;
-  gap:20px; padding:40px; text-align:center;
-  background:rgba(239,68,68,.93);
-  animation:opulse 1.4s ease-in-out infinite alternate }
-#overlay.show { display:flex }
-@keyframes opulse { from{background:rgba(239,68,68,.88)} to{background:rgba(239,68,68,1)} }
-.ov-icon { font-size:72px; animation:bounce .6s ease-in-out infinite alternate }
-@keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-8px)} }
-#ov-title { font-size:26px; font-weight:800; color:#fff }
-#ov-body  { font-size:16px; color:rgba(255,255,255,.85); line-height:1.5 }
-#overlay .btn { font-size:17px; padding:16px 36px; border-radius:14px;
-  background:#fff; color:#dc2626; font-weight:800 }
+/* ── ADMIN ── */
+.acard { background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:16px; margin-bottom:10px }
+.acard h3 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--dim) }
+.arow { display:flex; align-items:center; gap:10px; padding:8px 0;
+  border-bottom:1px solid var(--border) }
+.arow:last-child { border-bottom:none }
+.arow-info { flex:1; min-width:0 }
+.arow-name { font-size:14px; font-weight:600 }
+.arow-meta { font-size:11px; color:var(--mute); margin-top:2px }
+.delbtn { background:rgba(248,113,113,.15); border:none; color:var(--red);
+  border-radius:6px; padding:6px 10px; cursor:pointer; font-size:14px }
+.form-stack > div { margin-bottom:10px }
+.form-stack label { display:block; font-size:12px; color:var(--dim); margin-bottom:4px }
+.form-stack input, .form-stack select {
+  width:100%; background:var(--surf2); border:1px solid var(--border);
+  border-radius:8px; padding:10px 12px; color:var(--text); font-size:14px }
+.form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px }
+.thresh-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px }
+.thresh-grid label { display:block; font-size:12px; color:var(--dim); margin-bottom:4px }
+.thresh-grid input { width:100%; background:var(--surf2); border:1px solid var(--border);
+  border-radius:8px; padding:10px; color:var(--text); font-size:14px }
+
+/* ── LOGIN ── */
+.login-wrap { display:flex; flex-direction:column; align-items:center;
+  justify-content:center; height:100%; padding:32px 24px }
+.login-logo  { font-size:56px; margin-bottom:12px }
+.login-title { font-size:24px; font-weight:700; margin-bottom:6px }
+.login-sub   { font-size:14px; color:var(--dim); margin-bottom:32px }
+.login-pick-label { font-size:12px; color:var(--mute); align-self:flex-start; margin-bottom:4px }
+#pick-member { width:100%; background:var(--surf2); border:1px solid var(--border);
+  border-radius:var(--rs); padding:14px 16px; color:var(--text); font-size:15px; margin-bottom:4px }
+.admin-link  { margin-top:20px }
+.admin-link button { background:none; border:none; color:var(--mute); font-size:12px;
+  cursor:pointer; text-decoration:underline }
 
 /* ── TOAST ── */
-#toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(12px);
-  background:var(--surf3); color:var(--text); padding:11px 22px;
-  border-radius:24px; font-size:14px; font-weight:500; opacity:0;
-  transition:opacity .2s,transform .2s; pointer-events:none; z-index:500;
-  white-space:nowrap; box-shadow:var(--shadow); border:1px solid var(--border) }
+#toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:rgba(30,42,58,.95); border:1px solid var(--border); backdrop-filter:blur(12px);
+  color:var(--text); padding:10px 20px; border-radius:20px; font-size:14px; font-weight:500;
+  opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:9999;
+  white-space:nowrap }
 #toast.show { opacity:1; transform:translateX(-50%) translateY(0) }
 
-/* ── LOGIN SCREEN ── */
-#screen-login { align-items:center; justify-content:center; gap:0; padding:0;
-  background:radial-gradient(ellipse at 50% -5%,#1a2f50 0%,var(--bg) 60%) }
-.login-wrap { width:100%; max-width:340px; padding:32px 28px;
-  display:flex; flex-direction:column; gap:0 }
-.login-logo { font-size:56px; text-align:center; margin-bottom:12px;
-  filter:drop-shadow(0 4px 16px rgba(96,165,250,.4));
-  animation:float 3.5s ease-in-out infinite }
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-.login-title { font-size:28px; font-weight:800; text-align:center;
-  letter-spacing:-.3px; margin-bottom:6px }
-.login-sub { font-size:14px; color:var(--dim); text-align:center; margin-bottom:28px }
-.login-pick-label { font-size:13px; font-weight:600; color:var(--dim);
-  margin-bottom:8px; text-align:center }
-.login-divider { display:flex; align-items:center; gap:12px;
-  margin:18px 0; color:var(--mute); font-size:12px }
-.login-divider::before,.login-divider::after { content:''; flex:1;
-  height:1px; background:var(--border) }
-.admin-link { text-align:center; margin-top:14px }
-.admin-link button { background:none; border:none; color:var(--mute);
-  font-size:13px; cursor:pointer; text-decoration:underline;
-  text-decoration-color:var(--border) }
+/* ── OVERLAY ── */
+#overlay { display:none; position:fixed; inset:0; background:rgba(5,8,18,.92);
+  backdrop-filter:blur(16px); z-index:9000; flex-direction:column;
+  align-items:center; justify-content:center; padding:32px; text-align:center }
+#overlay.show { display:flex }
+.ov-icon { font-size:64px; margin-bottom:16px; animation:bounce .6s ease infinite alternate }
+@keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-8px)} }
+#ov-title { font-size:22px; font-weight:700; margin-bottom:8px }
+#ov-body  { font-size:15px; color:var(--dim); margin-bottom:32px; line-height:1.5 }
+#overlay button { background:var(--green); color:#0a0f1e; border:none; border-radius:var(--r);
+  padding:16px 40px; font-size:17px; font-weight:700; cursor:pointer }
 
-/* ── ELDER SCREEN ── */
-#screen-elder { background:radial-gradient(ellipse at 50% 0%,#0d2240,var(--bg) 55%) }
-.elder-hdr { padding:18px 18px 12px; display:flex; align-items:center;
-  justify-content:space-between; flex-shrink:0 }
-.elder-hdr h1 { font-size:18px; font-weight:700 }
-.elder-greeting { font-size:22px; font-weight:800; line-height:1.3 }
-.elder-sub { font-size:14px; color:var(--dim); margin-top:4px; margin-bottom:20px }
-
-/* ── ADMIN LOGIN MODAL ── */
-#admin-modal { display:none; position:fixed; inset:0; z-index:900;
-  background:rgba(0,0,0,.7); align-items:center; justify-content:center; padding:24px }
+/* ── ADMIN MODAL ── */
+#admin-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
+  backdrop-filter:blur(8px); z-index:8000; align-items:center; justify-content:center }
 #admin-modal.show { display:flex }
-.modal-box { background:var(--surf); border:1px solid var(--border);
-  border-radius:var(--r); padding:24px; width:100%; max-width:320px }
+.modal-box { background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:24px; width:calc(100% - 48px); max-width:360px }
 .modal-box h3 { font-size:17px; font-weight:700; margin-bottom:16px }
+.modal-box input { width:100%; background:var(--surf2); border:1px solid var(--border);
+  border-radius:8px; padding:12px; color:var(--text); font-size:15px; margin-bottom:8px }
 .modal-box .btn { margin-top:10px }
+
+/* ── MY STATUS CARD ── */
+.my-status-card { background:var(--surf); border:1px solid var(--border); border-radius:var(--r);
+  padding:16px; margin-bottom:16px; display:flex; align-items:center; gap:14px }
+.my-status-icon { font-size:32px }
+.my-status-info {}
+.my-status-label { font-size:15px; font-weight:600 }
+.my-status-time  { font-size:12px; color:var(--mute); margin-top:3px }
 </style>
 </head>
 <body>
@@ -367,7 +345,9 @@ label { font-size:12px; color:var(--dim); display:block; margin-bottom:5px; lett
     <div id="y-events"><div class="cspinner"><div class="spinner"></div></div></div>
   </div>
   <div class="scroll tab-pane" id="ytab-me-pane">
-    <div class="slabel">我的打卡</div>
+    <div class="slabel">我的状态</div>
+    <div id="y-my-status"></div>
+    <div class="slabel">快速打卡</div>
     <div id="y-me-btns"></div>
     <div class="slabel">账号</div>
     <button class="btn bgh w100" onclick="App.logout()">退出登录</button>
@@ -463,10 +443,14 @@ const SUPA_URL  = 'https://slzqgtgmzqcqtnhnqoms.supabase.co';
 const SUPA_KEY  = 'sb_publishable_u91QHSj9kppOiBPvvCoBfw_vvZgihUT';
 const HARDCODED_ADMIN_PW = 'WF-7k9m2x';
 
+// ✅ sleep/home 打卡后的豁免小时数（这段时间内不触发 warning/alert）
+const SLEEP_EXEMPT_HOURS = 10;
+const HOME_EXEMPT_HOURS  = 4;
+
 const DEFAULT_REMINDER_TYPES = [
-  { id:'peace', label:'我很好',   voice:'{name}报平安了',  is_checkin:true,  color:'safe'  },
-  { id:'home',  label:'我到家了', voice:'{name}到家了',    is_checkin:true,  color:'home'  },
-  { id:'sleep', label:'我去睡了', voice:'{name}说我去睡了', is_checkin:true, color:'sleep' },
+  { id:'peace', label:'我很好',   voice:'{name}报平安了',   is_checkin:true, color:'safe'  },
+  { id:'home',  label:'我到家了', voice:'{name}到家了',     is_checkin:true, color:'home'  },
+  { id:'sleep', label:'我去睡了', voice:'{name}说去睡了',   is_checkin:true, color:'sleep' },
 ];
 
 const { createClient } = supabase;
@@ -475,17 +459,48 @@ const db = createClient(SUPA_URL, SUPA_KEY);
 /* ════════════════════════════════════════
    STATE
 ════════════════════════════════════════ */
-let me = null;           // { user_key, name, is_elder }
-let members = [];        // wf_members rows with computed _status
-let events  = [];        // wf_events recent rows
-let settings = {};       // wf_settings parsed
+let me = null;
+let members = [];
+let events  = [];
+let settings = {};
 let reminderTypes = DEFAULT_REMINDER_TYPES;
 let warnH  = 12;
 let alertH = 24;
 let rtSub  = null;
 let pollT  = null;
 let rtOk   = false;
-let ovId   = null;       // currently shown overlay event id
+let ovId   = null;
+
+/* ════════════════════════════════════════
+   STATUS HELPERS
+   ✅ FIX: status now reflects checkin type (home/sleep) + exemption window
+════════════════════════════════════════ */
+
+// Returns display status: 'online'|'home'|'sleep'|'warning'|'alert'|'unknown'
+function computeMemberStatus(m) {
+  if (!m.last_checkin_at) return 'unknown';
+  const h = (Date.now() - new Date(m.last_checkin_at).getTime()) / 3600000;
+  const type = m.last_checkin_type || 'peace';
+
+  // Within exemption window: show the specific state
+  if (type === 'sleep' && h < SLEEP_EXEMPT_HOURS) return 'sleep';
+  if (type === 'home'  && h < HOME_EXEMPT_HOURS)  return 'home';
+
+  // Normal time-based status
+  if (h < warnH)  return 'online';
+  if (h < alertH) return 'warning';
+  return 'alert';
+}
+
+// ✅ FIX: unified status label + icon
+const STATUS_META = {
+  online:  { label:'🟢 平安',     short:'平安',   icon:'🟢', cssClass:'online'  },
+  home:    { label:'🏠 已到家',   short:'已到家', icon:'🏠', cssClass:'home'    },
+  sleep:   { label:'🌙 已入睡',   short:'已入睡', icon:'🌙', cssClass:'sleep'   },
+  warning: { label:'🟡 未打卡',   short:'未打卡', icon:'🟡', cssClass:'warning' },
+  alert:   { label:'🚨 失联！',   short:'失联！', icon:'🚨', cssClass:'alert'   },
+  unknown: { label:'⚪ 从未打卡', short:'未知',   icon:'⚪', cssClass:'unknown' },
+};
 
 /* ════════════════════════════════════════
    APP
@@ -494,7 +509,6 @@ const App = {
 
 /* ── INIT ── */
 async init() {
-  // Try auto-login
   const saved = localStorage.getItem('wf_user');
   if (saved) {
     try {
@@ -503,7 +517,6 @@ async init() {
       return;
     } catch(_) { localStorage.removeItem('wf_user'); }
   }
-  // Load member list for picker
   await App.loadPicker();
 },
 
@@ -522,50 +535,45 @@ async loadPicker() {
     data.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m.user_key;
-      opt.textContent = m.name + (m.is_elder ? ' 👴' : ' 👤');
+      opt.textContent = m.name + (m.is_elder ? ' 👴' : '');
       sel.appendChild(opt);
     });
   } catch(e) {
     sel.innerHTML = '<option value="">加载失败，请刷新</option>';
-    console.error('picker error:', e);
   }
 },
 
-/* ── LOGIN ── */
 async pickLogin() {
-  const key = document.getElementById('pick-member').value;
+  const sel = document.getElementById('pick-member');
+  const key = sel.value;
   if (!key) return App.toast('请先选择你是谁');
-  // Fetch member info
-  const { data, error } = await db.from('wf_members')
+  const { data } = await db.from('wf_members')
     .select('*').eq('user_key', key).single();
-  if (error || !data) return App.toast('找不到该成员，请刷新重试');
+  if (!data) return App.toast('找不到该成员');
   me = { user_key: data.user_key, name: data.name, is_elder: data.is_elder };
   localStorage.setItem('wf_user', JSON.stringify(me));
   await App.boot();
 },
 
 showAdminModal() {
-  document.getElementById('admin-pw-input').value = '';
   document.getElementById('admin-modal').classList.add('show');
-  setTimeout(() => document.getElementById('admin-pw-input').focus(), 100);
 },
 hideAdminModal() {
   document.getElementById('admin-modal').classList.remove('show');
+  document.getElementById('admin-pw-input').value = '';
 },
 
 async adminLogin() {
-  const pw = document.getElementById('admin-pw-input').value;
-  // Check against wf_settings
+  const input = document.getElementById('admin-pw-input').value;
   let storedPw = HARDCODED_ADMIN_PW;
   try {
-    const { data } = await db.from('wf_settings')
-      .select('value').eq('key','admin_password').single();
+    const { data } = await db.from('wf_settings').select('value').eq('key','admin_pw').single();
     if (data?.value) {
       const v = data.value;
-      storedPw = (typeof v === 'string' && v.startsWith('"')) ? JSON.parse(v) : String(v);
+      storedPw = typeof v === 'object' ? JSON.parse(v) : String(v);
     }
   } catch(_) {}
-  if (pw !== storedPw) return App.toast('密码错误');
+  if (input !== storedPw) return App.toast('密码错误');
   App.hideAdminModal();
   me = { user_key:'admin', name:'管理员', is_elder:false, isAdmin:true };
   localStorage.setItem('wf_user', JSON.stringify(me));
@@ -580,7 +588,6 @@ logout() {
   App.loadPicker();
 },
 
-/* ── BOOT (after login) ── */
 async boot() {
   await App.loadSettings();
   await App.loadData();
@@ -601,7 +608,6 @@ async loadSettings() {
     if (!data) return;
     data.forEach(r => {
       let v = r.value;
-      // jsonb comes back already parsed by supabase-js
       if (r.key === 'thresholds' && v) {
         warnH  = v.yellow_hours || 12;
         alertH = v.red_hours    || 24;
@@ -633,11 +639,8 @@ async loadData() {
 },
 
 computeStatus() {
-  const now = Date.now();
   members.forEach(m => {
-    if (!m.last_checkin_at) { m._st = 'unknown'; return; }
-    const h = (now - new Date(m.last_checkin_at).getTime()) / 3600000;
-    m._st = h < warnH ? 'online' : h < alertH ? 'warning' : 'alert';
+    m._st = computeMemberStatus(m);
   });
 },
 
@@ -651,6 +654,7 @@ renderAll() {
   App.renderYoungMembers();
   App.renderYoungEvents();
   App.renderMeBtns();
+  App.renderMyStatus();
   App.renderAdminMembers();
   App.renderAdminEvents();
   App.checkOverlay();
@@ -682,6 +686,7 @@ renderElderBtns() {
   }).join('');
 },
 
+// ✅ FIX: chips now show home/sleep status with correct icon/color
 renderElderChips() {
   const el = document.getElementById('e-chips');
   if (!el) return;
@@ -691,12 +696,12 @@ renderElderChips() {
     return;
   }
   el.innerHTML = others.map(m => {
-    const bc = m._st==='alert' ? 'c-red' : m._st==='warning' ? 'c-yellow' : '';
-    const stLabel = { online:'平安', warning:'未打卡', alert:'失联！', unknown:'未知' }[m._st] || '';
+    const st = STATUS_META[m._st] || STATUS_META.unknown;
+    const bc = m._st==='alert'?'c-red' : m._st==='warning'?'c-yellow' : '';
     return `<div class="chip ${bc}">
-      <div class="dot ${m._st}"></div>
+      <div class="dot ${st.cssClass}"></div>
       <span class="chip-name">${esc(m.name)}</span>
-      <span style="font-size:11px;color:var(--mute)">${stLabel}</span>
+      <span style="font-size:11px;color:var(--mute)">${st.short}</span>
     </div>`;
   }).join('');
 },
@@ -721,47 +726,75 @@ renderElderNudges() {
     </div>`).join('');
 },
 
+// ✅ FIX: member cards now show home/sleep status correctly
 renderYoungMembers() {
   const el = document.getElementById('y-members');
   if (!el) return;
   if (!members.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><p>暂无家庭成员<br><small>请管理员先添加</small></p></div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--mute)">暂无家庭成员</div>';
     return;
   }
   el.innerHTML = members.map(m => {
     const isSelf = m.user_key === me?.user_key;
-    const stLabel = {
-      online:  '🟢 平安',
-      warning: '🟡 超过' + warnH + 'h未打卡',
-      alert:   '🚨 超过' + alertH + 'h未打卡！',
-      unknown: '⚪ 从未打卡'
-    }[m._st] || '';
-    const bc = m._st==='alert'?'c-red':m._st==='warning'?'c-yellow':m._st==='online'?'c-green':'';
+    const st = STATUS_META[m._st] || STATUS_META.unknown;
+
+    // full label with hours context for warning/alert
+    let fullLabel = st.label;
+    if (m._st === 'warning') fullLabel = `🟡 超过${warnH}h未打卡`;
+    if (m._st === 'alert')   fullLabel = `🚨 超过${alertH}h未打卡！`;
+
+    const bc = m._st==='alert'?'c-red' : m._st==='warning'?'c-yellow' :
+               m._st==='online'?'c-green' : m._st==='home'?'c-home' :
+               m._st==='sleep'?'c-purple' : '';
+
+    // ✅ FIX: disable nudge if there's already an unconfirmed nudge to this person
+    const hasNudge = events.some(e =>
+      e.type === 'nudge' &&
+      e.to_key === m.user_key &&
+      !(e.confirmed_by || []).includes(m.user_key)
+    );
+
     return `<div class="card ${bc}">
       <div class="mrow">
         <div class="mava">
           ${m.is_elder ? '🧓' : '👤'}
-          <div class="mbadge ${m._st}"></div>
+          <div class="mbadge ${st.cssClass}"></div>
         </div>
         <div class="minfo">
           <div class="mname">${esc(m.name)}${isSelf ? ' <span style="font-size:11px;color:var(--mute);font-weight:400">（我）</span>' : ''}</div>
-          <div class="mstat ${m._st}">${stLabel}</div>
+          <div class="mstat ${st.cssClass}">${fullLabel}</div>
           <div class="mtime">${m.last_checkin_at ? '最后打卡：' + timeAgo(m.last_checkin_at) : '从未打卡'}</div>
         </div>
-        ${!isSelf ? `<button class="nudge" onclick="App.nudge('${m.user_key}','${esc(m.name)}')">👋 催一下</button>` : ''}
+        ${!isSelf ? `<button class="nudge" onclick="App.nudge('${m.user_key}','${esc(m.name)}')"
+          ${hasNudge ? 'disabled title="已催过了"' : ''}>
+          ${hasNudge ? '已催 👋' : '👋 催一下'}
+        </button>` : ''}
       </div>
     </div>`;
   }).join('');
 },
 
+// ✅ FIX: feed only shows nudge events to/from self, hides others' private nudges
 renderYoungEvents() {
   const el = document.getElementById('y-events');
   if (!el) return;
-  if (!events.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>暂无动态</p></div>';
+
+  const visible = events.filter(e => {
+    if (e.type === 'checkin') return true;   // 打卡全家可见
+    if (e.type === 'alert')   return true;   // 告警全家可见
+    if (e.type === 'system')  return true;   // 系统消息全家可见
+    if (e.type === 'nudge') {
+      // ✅ 只有自己发出的或自己收到的nudge才显示
+      return e.from_key === me?.user_key || e.to_key === me?.user_key;
+    }
+    return false;
+  });
+
+  if (!visible.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--mute)">暂无动态</div>';
     return;
   }
-  el.innerHTML = events.map(e => {
+  el.innerHTML = visible.map(e => {
     const icon = { checkin:'✅', nudge:'👋', alert:'🚨', system:'⚙️' }[e.type] || '📌';
     const isMeTarget = e.to_key === me?.user_key;
     const confirmed  = (e.confirmed_by || []).includes(me?.user_key);
@@ -791,6 +824,22 @@ renderMeBtns() {
   ).join('');
 },
 
+// ✅ NEW: show my current status in the "Me" tab
+renderMyStatus() {
+  const el = document.getElementById('y-my-status');
+  if (!el || !me || me.isAdmin) return;
+  const myM = members.find(m => m.user_key === me.user_key);
+  if (!myM) return;
+  const st = STATUS_META[myM._st] || STATUS_META.unknown;
+  el.innerHTML = `<div class="my-status-card">
+    <div class="my-status-icon">${st.icon}</div>
+    <div class="my-status-info">
+      <div class="my-status-label mstat ${st.cssClass}">${st.label}</div>
+      <div class="my-status-time">${myM.last_checkin_at ? '最后打卡：' + timeAgo(myM.last_checkin_at) : '从未打卡'}</div>
+    </div>
+  </div>`;
+},
+
 renderAdminMembers() {
   const el = document.getElementById('a-members');
   if (!el) return;
@@ -798,7 +847,7 @@ renderAdminMembers() {
     el.innerHTML = '<p style="color:var(--mute);font-size:13px">还没有成员，请在下方添加</p>';
     return;
   }
-  const stMap = { online:'🟢 平安', warning:'🟡 未打卡', alert:'🚨 失联', unknown:'⚪ 从未打卡' };
+  const stMap = { online:'🟢 平安', home:'🏠 已到家', sleep:'🌙 已入睡', warning:'🟡 未打卡', alert:'🚨 失联', unknown:'⚪ 从未打卡' };
   el.innerHTML = members.map(m => `
     <div class="arow">
       <div class="mava" style="width:38px;height:38px;font-size:20px;flex-shrink:0">
@@ -835,12 +884,10 @@ async checkin(typeId, label) {
   if (!me) return;
   const now = new Date().toISOString();
   const msg = me.name + ' · ' + label;
-  // Update member
   const { error: ue } = await db.from('wf_members')
     .update({ last_checkin_at: now, last_checkin_type: typeId })
     .eq('user_key', me.user_key);
   if (ue) { console.error('checkin update:', ue); App.toast('打卡失败：' + ue.message); return; }
-  // Insert event
   await db.from('wf_events').insert({
     type: 'checkin',
     from_key: me.user_key,
@@ -854,13 +901,22 @@ async checkin(typeId, label) {
   await App.loadData();
 },
 
+// ✅ FIX: nudge only inserts event with to_key, overlay only fires for that person
 async nudge(toKey, toName) {
   if (!me) return;
+  // ✅ FIX: prevent duplicate nudge if one is already pending
+  const alreadyPending = events.some(e =>
+    e.type === 'nudge' &&
+    e.to_key === toKey &&
+    !(e.confirmed_by || []).includes(toKey)
+  );
+  if (alreadyPending) { App.toast('已有未回复的催促，请等 ' + toName + ' 回应'); return; }
+
   const msg = me.name + ' 想知道你是否平安，快打个卡报平安吧 👋';
   await db.from('wf_events').insert({
     type: 'nudge',
     from_key: me.user_key,
-    to_key: toKey,
+    to_key: toKey,         // ✅ to_key 确保只有目标人收到 overlay
     message_type: 'nudge',
     message_text: msg,
     confirmed_by: []
@@ -871,7 +927,6 @@ async nudge(toKey, toName) {
 
 async confirmEv(id) {
   if (!me) return;
-  // Append user_key to confirmed_by array
   const ev = events.find(e => e.id === id);
   if (!ev) return;
   const already = ev.confirmed_by || [];
@@ -898,7 +953,6 @@ async addMember() {
   document.getElementById('nm-key').value  = '';
   App.toast('✅ 已添加 ' + name);
   await App.loadData();
-  // Also refresh picker for next login
   App.loadPicker();
 },
 
@@ -924,14 +978,14 @@ async saveThresh() {
 },
 
 /* ════════════════════════════════════════
-   OVERLAY
+   OVERLAY — ✅ FIX: only fires for to_key target
 ════════════════════════════════════════ */
 checkOverlay() {
   if (!me || me.isAdmin) return;
-  // Unconfirmed nudges targeting me
+  // Nudge targeting me specifically
   const nudge = events.find(e =>
     e.type === 'nudge' &&
-    e.to_key === me.user_key &&
+    e.to_key === me.user_key &&      // ✅ strictly matches my user_key
     !(e.confirmed_by || []).includes(me.user_key)
   );
   if (nudge && ovId !== nudge.id) {
@@ -939,7 +993,7 @@ checkOverlay() {
     App.showOverlay('👋', '家人催你啦！', nudge.message_text || '快打个卡吧', nudge.id);
     return;
   }
-  // Alert members (not self)
+  // Alert: only show if no nudge overlay active
   if (!ovId) {
     const alertM = members.find(m => m._st === 'alert' && m.user_key !== me.user_key);
     if (alertM) {
@@ -1061,7 +1115,6 @@ function speak(text) {
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', () => {
   App.init();
-  // Enter key in admin modal
   document.getElementById('admin-pw-input')
     .addEventListener('keydown', e => { if (e.key==='Enter') App.adminLogin(); });
 });
