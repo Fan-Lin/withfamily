@@ -35,18 +35,16 @@
   ],
   "screenshots": [
     {
-      "src": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1280&q=80",
-      "sizes": "1280&times;720",
-      "type": "image/jpeg",
-      "form_factor": "wide",
-      "label": "桌面版 WithFamily 预览"
+      "src": "mobile.png",
+      "sizes": "540x1200",
+      "type": "image/png",
+      "form_factor": "narrow"
     },
     {
-      "src": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=720&q=80",
-      "sizes": "720&times;1280",
-      "type": "image/jpeg",
-      "form_factor": "narrow",
-      "label": "手机版 WithFamily 预览"
+      "src": "desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 }
