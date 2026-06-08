@@ -443,6 +443,11 @@ const SUPA_URL  = 'https://slzqgtgmzqcqtnhnqoms.supabase.co';
 const SUPA_KEY  = 'sb_publishable_u91QHSj9kppOiBPvvCoBfw_vvZgihUT';
 const HARDCODED_ADMIN_PW = 'WF-7k9m2x';
 
+// Web Push — VAPID 公钥（私钥只在 Edge Function 的环境变量里，不出现在前端）
+const VAPID_PUBLIC_KEY = 'BPU3PRhOErn2CGcLr7OWB5ZQ4ys7AxkifYTHbNIZb1CloLdZGUcsFbH3u18xsUHHFZ5LMx9JDzq6UwZxPEAiRBI';
+// Edge Function URL（部署后自动可用）
+const PUSH_FUNCTION_URL = SUPA_URL.replace('supabase.co', 'functions.supabase.co') + '/functions/v1/wf-push';
+
 // ✅ sleep/home 打卡后的豁免小时数（这段时间内不触发 warning/alert）
 const SLEEP_EXEMPT_HOURS = 10;
 const HOME_EXEMPT_HOURS  = 4;
@@ -597,6 +602,77 @@ async boot() {
   App.show(screen);
   if (me.is_elder) App.updateGreeting();
   App.toast('欢迎，' + me.name + '！');
+  // 登录后异步申请 Push 权限（不阻塞主流程）
+  if (!me.isAdmin) App.setupPush();
+},
+
+/* ════════════════════════════════════════
+   WEB PUSH — 订阅管理
+════════════════════════════════════════ */
+
+// 将 base64url 转成 Uint8Array（applicationServerKey 需要）
+_b64uToUint8(b64u) {
+  const pad = '==='.slice((b64u.length + 3) % 4);
+  const s = (b64u + pad).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+},
+
+async setupPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.log('[Push] 浏览器不支持 Web Push');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        console.log('[Push] 用户拒绝通知权限');
+        return;
+      }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: App._b64uToUint8(VAPID_PUBLIC_KEY),
+      });
+      console.log('[Push] 新订阅成功');
+    } else {
+      console.log('[Push] 已有订阅，同步中');
+    }
+    const subJson = sub.toJSON();
+    const { error } = await db.from('wf_push_subscriptions').upsert({
+      user_key:   me.user_key,
+      endpoint:   subJson.endpoint,
+      p256dh:     subJson.keys?.p256dh ?? '',
+      auth:       subJson.keys?.auth   ?? '',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'endpoint' });
+    if (error) console.error('[Push] 存订阅失败:', error);
+    else console.log('[Push] 订阅已同步');
+  } catch(e) {
+    console.error('[Push] setupPush 错误:', e);
+  }
+},
+
+// 调用 Edge Function 向指定用户的所有设备推送通知
+async sendPushTo(toKey, title, body, tag) {
+  tag = tag || 'wf-nudge';
+  try {
+    const res = await fetch(PUSH_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + SUPA_KEY,
+      },
+      body: JSON.stringify({ to_key: toKey, title, body, tag }),
+    });
+    const result = await res.json();
+    console.log('[Push] 推送结果:', result);
+    return result;
+  } catch(e) {
+    console.error('[Push] 推送失败:', e);
+    return null;
+  }
 },
 
 /* ════════════════════════════════════════
@@ -916,12 +992,19 @@ async nudge(toKey, toName) {
   await db.from('wf_events').insert({
     type: 'nudge',
     from_key: me.user_key,
-    to_key: toKey,         // ✅ to_key 确保只有目标人收到 overlay
+    to_key: toKey,
     message_type: 'nudge',
     message_text: msg,
     confirmed_by: []
   });
   App.toast('👋 已催促 ' + toName);
+  // ✅ 同时通过 Edge Function 发送系统级 Push 通知
+  App.sendPushTo(
+    toKey,
+    '👋 ' + me.name + ' 催你啦！',
+    msg,
+    'wf-nudge-' + toKey
+  );
   await App.loadData();
 },
 
