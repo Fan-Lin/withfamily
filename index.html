@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WithFamily">
 <!-- ✅ FIX: manifest link (was missing, caused PWA install to fail) -->
-<link rel="manifest" href="withfamily-manifest.json">
-<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="/withfamily/withfamily-manifest.json">
+<link rel="icon" href="/withfamily/icon-192.png">
 <title>WithFamily</title>
 <!-- ✅ FIX: register service worker (was missing, caused PWA install to fail) -->
 <script>if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./withfamily-sw.js').catch(()=>{}));</script>
