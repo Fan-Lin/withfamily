@@ -621,7 +621,6 @@ _b64uToUint8(b64u) {
 async setupPush() {
   alert('setupPush called');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  }
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
